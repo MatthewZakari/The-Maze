@@ -1,149 +1,78 @@
-#include "main.h"
-
-/* The window and renderer */
-SDL_Window *g_window = NULL;
-SDL_Renderer *g_renderer = NULL;
-
-/* The map and player */
-int map[MAP_WIDTH][MAP_HEIGHT] = {
-    {1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1}
-};
-
-player_t player = {320, 240, 0};
+#include <stdio.h>
+#include "maze.h"
 
 /**
- * init - Initializes the SDL2 library, window, and renderer.
- *
- * Return: 1 if successful, 0 otherwise.
+ * handle_events - Handles keyboard events to move and rotate the camera
+ * @quit: Pointer to the quit flag
+ * @posX: Pointer to the camera's X position
+ * @posY: Pointer to the camera's Y position
+ * @angle: Pointer to the camera's angle
  */
-int init(void)
+void handle_events(int *quit, float *posX, float *posY, float *angle)
 {
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
+    SDL_Event event;
+
+    while (SDL_PollEvent(&event))
     {
-        printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
-        return (0);
-    }
-
-    g_window = SDL_CreateWindow("Maze Project",
-                                SDL_WINDOWPOS_UNDEFINED,
-                                SDL_WINDOWPOS_UNDEFINED,
-                                SCREEN_WIDTH,
-                                SCREEN_HEIGHT,
-                                SDL_WINDOW_SHOWN);
-    if (g_window == NULL)
-    {
-        printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
-        return (0);
-    }
-
-    /* Use software rendering when using the dummy video driver */
-    if (strcmp(SDL_GetCurrentVideoDriver(), "dummy") == 0)
-    {
-        g_renderer = SDL_CreateRenderer(g_window, -1, SDL_RENDERER_SOFTWARE);
-    }
-    else
-    {
-        g_renderer = SDL_CreateRenderer(g_window, -1, SDL_RENDERER_ACCELERATED);
-    }
-    
-    if (g_renderer == NULL)
-    {
-        printf("Renderer could not be created! SDL_Error: %s\n", SDL_GetError());
-        return (0);
-    }
-
-    return (1);
-}
-
-/**
- * close - Frees resources and closes SDL.
- */
-void close(void)
-{
-    SDL_DestroyRenderer(g_renderer);
-    SDL_DestroyWindow(g_window);
-    g_window = NULL;
-    g_renderer = NULL;
-    SDL_Quit();
-}
-
-/**
- * render - Renders the game scene using raycasting.
- */
-void render(void)
-{
-    int x;
-    float ray_angle, ray_x, ray_y, ray_dir_x, ray_dir_y;
-    int map_x, map_y;
-
-    SDL_SetRenderDrawColor(g_renderer, 0x00, 0x00, 0x00, 0xFF);
-    SDL_RenderClear(g_renderer);
-
-    for (x = 0; x < SCREEN_WIDTH; x++)
-    {
-        ray_angle = (player.angle - 30) + ((float)x / (float)SCREEN_WIDTH) * 60;
-        ray_x = player.x;
-        ray_y = player.y;
-        ray_dir_x = cos(ray_angle * M_PI / 180.0);
-        ray_dir_y = sin(ray_angle * M_PI / 180.0);
-
-        while (1)
+        if (event.type == SDL_QUIT)
         {
-            ray_x += ray_dir_x;
-            ray_y += ray_dir_y;
-
-            map_x = (int)(ray_x / TILE_SIZE);
-            map_y = (int)(ray_y / TILE_SIZE);
-
-            if (map[map_x][map_y] == 1)
+            *quit = 1;
+        }
+        else if (event.type == SDL_KEYDOWN)
+        {
+            switch (event.key.keysym.sym)
             {
-                SDL_SetRenderDrawColor(g_renderer, 0xFF, 0x00, 0x00, 0xFF);
-                SDL_RenderDrawLine(g_renderer, player.x, player.y, ray_x, ray_y);
+            case SDLK_ESCAPE:
+                *quit = 1;
+                break;
+            case SDLK_LEFT:
+                *angle -= 0.1;
+                break;
+            case SDLK_RIGHT:
+                *angle += 0.1;
+                break;
+            case SDLK_UP:
+                *posX += 0.1 * cos(*angle);
+                *posY += 0.1 * sin(*angle);
+                break;
+            case SDLK_DOWN:
+                *posX -= 0.1 * cos(*angle);
+                *posY -= 0.1 * sin(*angle);
                 break;
             }
         }
     }
-
-    SDL_RenderPresent(g_renderer);
 }
 
 /**
- * main - Entry point of the program.
- *
- * Return: 0 on success.
+ * main - Entry point of the program
+ * 
+ * Return: 0 on success, 1 on failure
  */
 int main(void)
 {
+    SDL_Window *window = NULL;
+    SDL_Renderer *renderer = NULL;
+    int sdl_initialized = init_SDL(&window, &renderer);
     int quit = 0;
-    SDL_Event e;
+    float posX = SCREEN_WIDTH / 2.0;
+    float posY = SCREEN_HEIGHT / 2.0;
+    float angle = 0.0;
 
-    if (!init())
+    if (sdl_initialized != 0)
     {
-        printf("Failed to initialize!\n");
-    }
-    else
-    {
-        while (!quit)
-        {
-            while (SDL_PollEvent(&e) != 0)
-            {
-                if (e.type == SDL_QUIT)
-                {
-                    quit = 1;
-                }
-            }
-            render();
-        }
+        printf("Failed to initialize SDL! (error code: %d)\n", sdl_initialized);
+        return (1);
     }
 
-    close();
+    while (!quit)
+    {
+        handle_events(&quit, &posX, &posY, &angle);
+        draw_walls(renderer, posX, posY, angle);
+        SDL_Delay(16); /*Delay to control frame rate*/
+    }
+
+    close_SDL(window, renderer);
+
     return (0);
 }
-

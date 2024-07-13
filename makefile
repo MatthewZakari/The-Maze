@@ -1,23 +1,22 @@
 CC = gcc
-CFLAGS = -Wall -Werror -Wextra -pedantic
-LDFLAGS = -lSDL2 -lm
-SRCDIR = src
-INCDIR = inc
-OBJDIR = obj
+CFLAGS = -Wall -Werror -Wextra -pedantic -Iinc `sdl2-config --cflags` -lm
+LDFLAGS = `sdl2-config --libs` -lm
 
-SOURCES = $(wildcard $(SRCDIR)/*.c)
-OBJECTS = $(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o, $(SOURCES))
+SRC = src/main.c src/maze.c
+OBJ = obj/main.o obj/maze.o
 TARGET = The-Maze
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.c
-	@mkdir -p $(OBJDIR)
-	$(CC) $(CFLAGS) -I$(INCDIR) -c $< -o $@
+all: $(TARGET)
 
-$(TARGET): $(OBJECTS)
-	$(CC) $(OBJECTS) -o $@ $(LDFLAGS)
+$(TARGET): $(OBJ)
+	$(CC) $(OBJ) -o $(TARGET) $(LDFLAGS)
+
+obj/main.o: src/main.c inc/maze.h
+	$(CC) $(CFLAGS) -c src/main.c -o obj/main.o
+
+obj/maze.o: src/maze.c inc/maze.h
+	$(CC) $(CFLAGS) -c src/maze.c -o obj/maze.o
 
 clean:
-	rm -rf $(OBJDIR) $(TARGET)
-
-.PHONY: clean
+	rm -f $(OBJ) $(TARGET)
 
